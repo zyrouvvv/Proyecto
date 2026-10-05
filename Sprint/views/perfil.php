@@ -1,168 +1,156 @@
 <?php
-session_start();
-require_once '../includes/conexion.php';
+// perfil.php
+// MI PERFIL: ver y cambiar tu foto, nombre, correo, estado y descripcion.
+// Mejoras respecto al sprint 1:
+//  - la foto se valida de verdad (tamaño y que sea una imagen) y la foto vieja se borra
+//  - el nombre de la foto actual se lee de la base de datos (antes venia de un campo escondido del formulario)
+//  - se muestran los errores por campo y se conservan los datos escritos
 
-if (!isset($_SESSION['usuario_id'])) {
-    header("Location: login.php");
-    exit;
-}
+require '../includes/sesion.php';
+$usuarioSesion = exigirLogin($pdo);
+$usuarioID = (int)$usuarioSesion['usuarioID'];
 
-$usuarioID = $_SESSION['usuario_id'];$mensaje = "";
-$tipoMensaje = "";
+// Datos actuales del usuario
+$stmt = $pdo->prepare("SELECT usuarioID, nombreusuario, email, `desc`, foto, estado, registro FROM usuarios WHERE usuarioID = :id");
+$stmt->execute([':id' => $usuarioID]);
+$usuario = $stmt->fetch();
+
+// Lo que se muestra en el formulario (si hay errores, queda lo que escribio la persona)
+$valores = [
+    'nombreusuario' => $usuario['nombreusuario'],
+    'email'         => $usuario['email'],
+    'desc'          => $usuario['desc'] ?? '',
+    'estado'        => $usuario['estado'] ?? 'Activo'
+];
+$errores = [];
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $nombreusuario = trim($_POST['nombreusuario']);
-    $email = trim($_POST['email']);
-    $desc = trim($_POST['desc']);
-    $estado = trim($_POST['estado']);
+    verificarCsrf();
 
-    
-    $nombreFoto =$_POST['foto_actual'] ?? ''; 
+    $valores['nombreusuario'] = trim($_POST['nombreusuario'] ?? '');
+    $valores['email'] = trim($_POST['email'] ?? '');
+    $valores['desc'] = trim($_POST['desc'] ?? '');
+    $valores['estado'] = $_POST['estado'] ?? '';
 
-    if (isset($_FILES['foto']) &&$_FILES['foto']['error'] === UPLOAD_ERR_OK) {
-        $fileTmpPath =$_FILES['foto']['tmp_name'];
-        $fileName =$_FILES['foto']['name'];
-        $fileExtension = strtolower(pathinfo($fileName, PATHINFO_EXTENSION));
+    // mismas reglas que el registro (la clave no se cambia aca, por eso $pedirClave = false)
+    $errores = validarUsuario($pdo, [
+        'nombre' => $valores['nombreusuario'],
+        'email'  => $valores['email'],
+        'estado' => $valores['estado']
+    ], $usuarioID, false);
 
-        $allowedExtensions = ['jpg', 'jpeg', 'png', 'gif', 'webp'];
-
-        if (in_array($fileExtension,$allowedExtensions)) {
-            $nuevoNombreFoto = "user_" . $usuarioID . "_" . time() . "." . $fileExtension;
-            $uploadFileDir = '../img/';$dest_path = $uploadFileDir .$nuevoNombreFoto;
-
-            if (move_uploaded_file($fileTmpPath,$dest_path)) {
-                $nombreFoto =$nuevoNombreFoto;
-            } else {
-                $mensaje = "Error al mover la imagen a la carpeta img.";
-                $tipoMensaje = "red";
-            }
-        } else {
-            $mensaje = "Formato de imagen no permitido. Solo JPG, PNG, GIF o WEBP.";
-            $tipoMensaje = "red";
-        }
+    if (mb_strlen($valores['desc']) > 500) {
+        $errores['desc'] = 'La descripción puede tener hasta 500 caracteres.';
     }
 
-    if (empty($mensaje) || $tipoMensaje === "green") {
+    // Foto de perfil (opcional)
+    list($fotoNueva, $errorFoto) = guardarFotoPerfil($_FILES['foto'] ?? null, $usuarioID);
+    if ($errorFoto !== '') {
+        $errores['foto'] = $errorFoto;
+    }
+
+    if (count($errores) > 0) {
+        // si hubo errores no dejamos la foto nueva suelta en la carpeta
+        if ($fotoNueva !== '') {
+            borrarFoto($fotoNueva);
+        }
+    } else {
+        $nombreFoto = $fotoNueva !== '' ? $fotoNueva : $usuario['foto'];
+
         try {
-            $sql = "UPDATE usuarios 
-                    SET nombreusuario = :nombre, email = :email, `desc` = :descripcion, foto = :foto, estado = :estado 
+            $sql = "UPDATE usuarios
+                    SET nombreusuario = :nombre, email = :email, `desc` = :descripcion, foto = :foto, estado = :estado
                     WHERE usuarioID = :id";
             $stmt = $pdo->prepare($sql);
-            $resultado =$stmt->execute([
-                ':nombre'      => $nombreusuario,
-                ':email'       => $email,
-                ':descripcion' => $desc,
+            $stmt->execute([
+                ':nombre'      => $valores['nombreusuario'],
+                ':email'       => $valores['email'],
+                ':descripcion' => $valores['desc'],
                 ':foto'        => $nombreFoto,
-                ':estado'      => $estado,
+                ':estado'      => $valores['estado'],
                 ':id'          => $usuarioID
             ]);
 
-            if ($resultado) {
-                $_SESSION['usuario_nombre'] =$nombreusuario;
-                $mensaje = "¡Perfil actualizado con éxito!";
-                $tipoMensaje = "green";
+            if ($fotoNueva !== '') {
+                borrarFoto($usuario['foto']); // borramos la foto anterior
             }
+            $_SESSION['usuario_nombre'] = $valores['nombreusuario'];
+
+            flash('ok', '¡Perfil actualizado con éxito!');
+            header("Location: perfil.php");
+            exit;
         } catch (PDOException $e) {
-            if ($e->getCode() == 23000) {$mensaje = "El correo electrónico ya pertenece a otra cuenta.";
-            } else {
-                $mensaje = "Error al actualizar: " . $e->getMessage();
+            if ($fotoNueva !== '') {
+                borrarFoto($fotoNueva);
             }
-            $tipoMensaje = "red";
+            if ($e->getCode() == 23000) {
+                $errores['email'] = 'Ese correo electrónico ya pertenece a otra cuenta.';
+            } else {
+                $errores['general'] = 'Error al actualizar el perfil. Probá de nuevo.';
+            }
         }
     }
 }
 
-$stmt =$pdo->prepare("SELECT usuarioID, nombreusuario, email, `desc`, foto, estado, registro FROM usuarios WHERE usuarioID = :id");
-$stmt->execute([':id' =>$usuarioID]);
-$usuario =$stmt->fetch(PDO::FETCH_ASSOC);
-
-if (!$usuario) {
-    session_destroy();
-    header("Location: login.php");
-    exit;
-}
+$tituloPagina = "Mi perfil";
+$claseMain = "centrado";
+require '../includes/cabecera.php';
 ?>
 
-<!DOCTYPE html>
-<html lang="es">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Mi Perfil</title>
-    <link rel="stylesheet" href="../styles/registro.css">
-    <style>
-        .profile-img {
-            width: 100px;
-            height: 100px;
-            border-radius: 50%;
-            object-fit: cover;
-            display: block;
-            margin: 10px auto;
-            border: 2px solid #007bff;
-        }
-    </style>
-</head>
-<body>
-
-    <div class="registro-container">
+    <div class="registro-container ancho">
         <h2>Mi Perfil</h2>
-        <p style="text-align: center;">
-            <a href="panel.php">← Volver al Panel</a> | <a href="logout.php">Cerrar Sesión</a>
-        </p>
 
-        <?php if (!empty($mensaje)): ?>
-            <p style="color: <?php echo $tipoMensaje; ?>; font-weight: bold; text-align: center;">
-                <?php echo $mensaje; ?>
-            </p>
+        <?php mostrarFlash(); ?>
+
+        <?php if (!empty($errores['general'])): ?>
+            <p class="mensaje mensaje-error"><?php echo h($errores['general']); ?></p>
         <?php endif; ?>
 
-        <!-- Muestra la foto de perfil actual o una por defecto -->
-        <?php if (!empty($usuario['foto']) && file_exists('../img/' .$usuario['foto'])): ?>
-            <img src="../img/<?php echo htmlspecialchars($usuario['foto']); ?>" alt="Foto de Perfil" class="profile-img">
-        <?php else: ?>
-            <img src="https://via.placeholder.com/100?text=Usuario" alt="Sin Foto" class="profile-img">
-        <?php endif; ?>
+        <img src="<?php echo h(urlFoto($usuario['foto'])); ?>" alt="Foto de perfil" class="profile-img">
 
         <form method="POST" action="perfil.php" enctype="multipart/form-data">
-            <input type="hidden" name="foto_actual" value="<?php echo htmlspecialchars($usuario['foto'] ?? ''); ?>">
+            <?php echo campoCsrf(); ?>
 
             <div class="form-group">
-                <label for="foto">Cambiar foto de perfil:</label>
-                <input type="file" id="foto" name="foto" accept="image/*">
+                <label for="foto">Cambiar foto de perfil (JPG, PNG, GIF o WEBP, hasta 2 MB):</label>
+                <input type="file" id="foto" name="foto" accept="image/jpeg,image/png,image/gif,image/webp">
+                <?php errorCampo($errores, 'foto'); ?>
             </div>
 
             <div class="form-group">
                 <label for="nombreusuario">Nombre de usuario:</label>
-                <input type="text" id="nombreusuario" name="nombreusuario" 
-                       value="<?php echo htmlspecialchars($usuario['nombreusuario'] ?? ''); ?>" required>
+                <input type="text" id="nombreusuario" name="nombreusuario" value="<?php echo h($valores['nombreusuario']); ?>" required maxlength="50">
+                <?php errorCampo($errores, 'nombre'); ?>
             </div>
 
             <div class="form-group">
                 <label for="email">Correo electrónico:</label>
-                <input type="email" id="email" name="email" 
-                       value="<?php echo htmlspecialchars($usuario['email'] ?? ''); ?>" required>
+                <input type="email" id="email" name="email" value="<?php echo h($valores['email']); ?>" required maxlength="100">
+                <?php errorCampo($errores, 'email'); ?>
             </div>
 
             <div class="form-group">
                 <label for="estado">Estado del usuario:</label>
-                <select id="estado" name="estado" style="width: 100%; padding: 8px;">
-                    <option value="Activo" <?php echo ($usuario['estado'] ?? '') === 'Activo' ? 'selected' : ''; ?>>Activo</option>
-                    <option value="Ocupado" <?php echo ($usuario['estado'] ?? '') === 'Ocupado' ? 'selected' : ''; ?>>Ocupado</option>
-                    <option value="Ausente" <?php echo ($usuario['estado'] ?? '') === 'Ausente' ? 'selected' : ''; ?>>Ausente</option>
-                    <option value="Inactivo" <?php echo ($usuario['estado'] ?? '') === 'Inactivo' ? 'selected' : ''; ?>>Inactivo</option>
+                <select id="estado" name="estado">
+                    <?php foreach (ESTADOS as $estado): ?>
+                        <option value="<?php echo h($estado); ?>" <?php echo $valores['estado'] === $estado ? 'selected' : ''; ?>><?php echo h($estado); ?></option>
+                    <?php endforeach; ?>
                 </select>
+                <?php errorCampo($errores, 'estado'); ?>
             </div>
 
             <div class="form-group">
                 <label for="desc">Descripción / Biografía:</label>
-                <textarea id="desc" name="desc" rows="4" style="width: 100%; box-sizing: border-box;"><?php echo htmlspecialchars($usuario['desc'] ?? ''); ?></textarea>
+                <textarea id="desc" name="desc" rows="4" maxlength="500"><?php echo h($valores['desc']); ?></textarea>
+                <?php errorCampo($errores, 'desc'); ?>
             </div>
 
-            <p><small>Miembro desde: <?php echo htmlspecialchars($usuario['registro'] ?? 'N/A'); ?></small></p>
+            <p><small>Miembro desde: <?php echo h(formatearFecha($usuario['registro'])); ?></small></p>
 
             <button type="submit">Guardar Cambios</button>
         </form>
+
+        <p class="volver"><a href="index.php">&laquo; Volver al inicio</a></p>
     </div>
 
-</body>
-</html>
+<?php require '../includes/footer.php'; ?>

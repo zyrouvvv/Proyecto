@@ -1,51 +1,130 @@
 <?php
-session_start();
-require '../includes/conexion.php';
+// panel.php
+// CRUD DE USUARIOS (solo administradores):
+//   Leer     -> esta tabla (con buscador)
+//   Crear    -> boton "Nuevo usuario"   (crear_usuario.php)
+//   Editar   -> link "Editar"           (editar.php)
+//   Eliminar -> boton "Eliminar"        (aca mismo)
+// Cambio importante respecto al sprint 1: eliminar ahora es por POST con token de seguridad.
+// Antes era un link (panel.php?eliminar=ID) y cualquiera podia borrar usuarios con solo
+// conocer la direccion, incluso sin ser administrador.
 
-if (!isset($_SESSION['usuario_id'])) {
-    header("Location: login.php");
+require '../includes/sesion.php';
+$admin = exigirAdmin($pdo);
+
+// ---------- Eliminar ----------
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    verificarCsrf();
+
+    if (($_POST['accion'] ?? '') === 'eliminar') {
+        $id = (int)($_POST['id'] ?? 0);
+
+        $stmt = $pdo->prepare("SELECT usuarioID, foto FROM usuarios WHERE usuarioID = :id");
+        $stmt->execute([':id' => $id]);
+        $objetivo = $stmt->fetch();
+
+        if (!$objetivo) {
+            flash('error', 'El usuario no existe.');
+        } elseif ($id === (int)$admin['usuarioID']) {
+            // asi nunca nos quedamos sin administrador
+            flash('error', 'No podés eliminar tu propia cuenta desde el panel.');
+        } else {
+            // Sus publicaciones, comentarios y votos se borran solos (ON DELETE CASCADE en la base de datos)
+            $stmt = $pdo->prepare("DELETE FROM usuarios WHERE usuarioID = :id");
+            $stmt->execute([':id' => $id]);
+            borrarFoto($objetivo['foto']);
+            flash('ok', 'Usuario eliminado.');
+        }
+    }
+
+    $q = trim($_POST['q'] ?? '');
+    header("Location: panel.php" . ($q !== '' ? '?q=' . urlencode($q) : ''));
     exit;
 }
 
-if (isset($_GET['eliminar'])) {
-    $id = $_GET['eliminar'];
-    $stmt = $pdo->prepare("DELETE FROM usuarios WHERE usuarioID = :id");
-    $stmt->execute(['id' => $id]);
-    header("Location: panel.php");
-    exit;
-}
+// ---------- Listar (con buscador) ----------
+$q = mb_substr(trim($_GET['q'] ?? ''), 0, 100);
 
-$stmt = $pdo->query("SELECT usuarioID, nombreusuario, email FROM usuarios");
-$usuarios = $stmt->fetchAll(PDO::FETCH_ASSOC);
+if ($q !== '') {
+    $comodin = '%' . addcslashes($q, '%_\\') . '%';
+    $stmt = $pdo->prepare("SELECT usuarioID, nombreusuario, email, foto, estado, rol, registro
+                           FROM usuarios
+                           WHERE nombreusuario LIKE :q1 OR email LIKE :q2
+                           ORDER BY usuarioID");
+    $stmt->execute([':q1' => $comodin, ':q2' => $comodin]);
+} else {
+    $stmt = $pdo->query("SELECT usuarioID, nombreusuario, email, foto, estado, rol, registro FROM usuarios ORDER BY usuarioID");
+}
+$usuarios = $stmt->fetchAll();
+
+$tituloPagina = "Panel de administración";
+$scripts = ['panel.js'];
+require '../includes/cabecera.php';
 ?>
-<!DOCTYPE html>
-<html lang="es">
-<head>
-    <meta charset="UTF-8">
-    <title>Panel de Administración</title>
-</head>
-<body>
-    <h2>Bienvenido, <?php echo htmlspecialchars($_SESSION['usuario_nombre']); ?> | <a href="perfil.php">Mi Perfil</a> | <a href="logout.php">Cerrar Sesión</a></h2>
 
-    <h3>Lista de Usuarios (CRUD)</h3>
-    <table border="1" cellpadding="8">
-        <tr>
-            <th>ID</th>
-            <th>Nombre</th>
-            <th>Email</th>
-            <th>Acciones</th>
-        </tr>
-        <?php foreach ($usuarios as $u): ?>
-        <tr>
-            <td><?php echo $u['usuarioID']; ?></td>
-            <td><?php echo htmlspecialchars($u['nombreusuario']); ?></td>
-            <td><?php echo htmlspecialchars($u['email']); ?></td>
-            <td>
-                <a href="editar.php?id=<?php echo $u['usuarioID']; ?>">Editar</a> | 
-                <a href="panel.php?eliminar=<?php echo $u['usuarioID']; ?>" onclick="return confirm('¿Seguro de eliminar?');">Eliminar</a>
-            </td>
-        </tr>
-        <?php endforeach; ?>
-    </table>
-</body>
-</html>
+    <div class="barra-titulo">
+        <h1>Panel de administración</h1>
+        <a class="boton" href="crear_usuario.php">+ Nuevo usuario</a>
+    </div>
+
+    <?php mostrarFlash(); ?>
+
+    <h2>Lista de usuarios (CRUD)</h2>
+
+    <form class="filtros" method="GET" action="panel.php" style="margin-bottom:16px;">
+        <input type="search" name="q" placeholder="Buscar por nombre o correo..." value="<?php echo h($q); ?>" maxlength="100">
+        <button class="boton" type="submit">Buscar</button>
+        <?php if ($q !== ''): ?>
+            <a class="boton boton-secundario" href="panel.php">Limpiar</a>
+        <?php endif; ?>
+    </form>
+
+    <div class="tabla-contenedor">
+        <table class="tabla">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Foto</th>
+                    <th>Nombre</th>
+                    <th>Email</th>
+                    <th>Estado</th>
+                    <th>Rol</th>
+                    <th>Registro</th>
+                    <th>Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                <?php if (count($usuarios) === 0): ?>
+                    <tr><td colspan="8" class="vacio">No hay usuarios que coincidan.</td></tr>
+                <?php endif; ?>
+
+                <?php foreach ($usuarios as $u): ?>
+                <tr>
+                    <td><?php echo (int)$u['usuarioID']; ?></td>
+                    <td><img src="<?php echo h(urlFoto($u['foto'])); ?>" alt=""></td>
+                    <td><?php echo h($u['nombreusuario']); ?></td>
+                    <td><?php echo h($u['email']); ?></td>
+                    <td><?php echo h($u['estado']); ?></td>
+                    <td class="<?php echo $u['rol'] === 'admin' ? 'rol-admin' : ''; ?>"><?php echo h($u['rol']); ?></td>
+                    <td><?php echo h(formatearFecha($u['registro'])); ?></td>
+                    <td>
+                        <div class="tabla-acciones">
+                            <a class="boton boton-chico" href="editar.php?id=<?php echo (int)$u['usuarioID']; ?>">Editar</a>
+                            <?php if ((int)$u['usuarioID'] !== (int)$admin['usuarioID']): ?>
+                                <form class="formulario-eliminar" method="POST" action="panel.php">
+                                    <?php echo campoCsrf(); ?>
+                                    <input type="hidden" name="accion" value="eliminar">
+                                    <input type="hidden" name="id" value="<?php echo (int)$u['usuarioID']; ?>">
+                                    <input type="hidden" name="q" value="<?php echo h($q); ?>">
+                                    <button type="submit" class="boton boton-peligro boton-chico">Eliminar</button>
+                                </form>
+                            <?php endif; ?>
+                        </div>
+                    </td>
+                </tr>
+                <?php endforeach; ?>
+            </tbody>
+        </table>
+    </div>
+
+<?php require '../includes/footer.php'; ?>
