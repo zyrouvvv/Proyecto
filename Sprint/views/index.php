@@ -169,5 +169,5 @@ require '../includes/cabecera.php';
             <?php endif; ?>
         </div>
     <?php endif; ?>
-
+            
 <?php require '../includes/footer.php'; ?>

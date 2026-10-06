@@ -5,7 +5,7 @@
 //   usuario   -> Nueva publicacion / Mi perfil / Cerrar sesion
 //   admin     -> lo mismo + Panel (CRUD de usuarios)
 // Tambien tiene el buscador: manda el texto a index.php?q=...
-
+<script src=""></script>
 $usuarioNav = usuarioActual($pdo);
 $textoBusqueda = $_GET['q'] ?? '';
 ?>
