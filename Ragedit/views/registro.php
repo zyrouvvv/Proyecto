@@ -1,10 +1,8 @@
 <?php
-// registro.php
-// Registro de usuarios. Las reglas de validacion estan en includes/ayudas.php (validarUsuario)
+
 
 require '../includes/sesion.php';
 
-// Si ya inicio sesion no tiene sentido registrarse de nuevo
 if (usuarioActual($pdo) !== null) {
     header("Location: index.php");
     exit;
@@ -31,7 +29,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     ]);
 
     if (count($errores) === 0) {
-        // La contraseña NUNCA se guarda tal cual: se guarda su hash
         $passwordHash = password_hash($password, PASSWORD_BCRYPT);
 
         try {

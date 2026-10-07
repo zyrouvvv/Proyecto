@@ -1,17 +1,14 @@
 <?php
-// login.php
-// Inicio de sesion con correo y contraseña.
+
 
 require '../includes/sesion.php';
 
-// "volver" es la pagina a la que queria entrar la persona antes de que la mandemos al login.
-// Solo se aceptan paginas de este mismo sitio (evita que nos redirijan a otra web).
+
 $volver = $_GET['volver'] ?? $_POST['volver'] ?? '';
 if (!preg_match('/^[a-z_]+\.php(\?[A-Za-z0-9_=&%.-]*)?$/', $volver) || preg_match('/^(login|registro|logout)\.php/', $volver)) {
     $volver = 'index.php';
 }
 
-// Si ya inicio sesion, no hace falta mostrar el login
 if (usuarioActual($pdo) !== null) {
     header("Location: " . $volver);
     exit;
@@ -35,7 +32,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         header("Location: " . $volver);
         exit;
     } else {
-        // el mismo mensaje para "no existe el correo" y "contraseña mal": asi no se sabe cual de los dos fallo
         $error = "Correo o contraseña incorrectos.";
     }
 }

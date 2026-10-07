@@ -1,7 +1,5 @@
 <?php
-// crear_usuario.php
-// CRUD DE USUARIOS - Crear: el administrador registra un usuario nuevo desde el panel.
-// Usa las mismas reglas de validacion que el registro publico (validarUsuario en includes/ayudas.php).
+
 
 require '../includes/sesion.php';
 $admin = exigirAdmin($pdo);

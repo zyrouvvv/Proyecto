@@ -1,10 +1,5 @@
 <?php
-// publicacion.php?id=N
-// Una publicacion completa con su CALIFICACION (me gusta / no me gusta) y sus COMENTARIOS.
-// Las acciones llegan por POST desde los formularios de abajo:
-//   comentar            -> agrega un comentario
-//   eliminar_comentario -> lo borra (solo el autor del comentario o un administrador)
-//   calificar           -> me gusta / no me gusta (apretar el mismo boton otra vez saca el voto)
+
 
 require '../includes/sesion.php';
 $usuario = usuarioActual($pdo);
@@ -28,10 +23,9 @@ if (!$publicacion) {
     exit;
 }
 
-// ---------- Acciones (POST) ----------
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     verificarCsrf();
-    $usuario = exigirLogin($pdo); // para comentar o calificar hay que tener sesion
+    $usuario = exigirLogin($pdo); 
     $accion = $_POST['accion'] ?? '';
 
     if ($accion === 'comentar') {
@@ -63,11 +57,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } elseif ($accion === 'calificar') {
         $tipo = $_POST['tipo'] ?? '';
         if ($tipo === 'me_gusta' || $tipo === 'no_me_gusta') {
-            // Una persona tiene un solo voto por publicacion:
-            //  - si no habia votado: se guarda su voto
-            //  - si apreta el mismo boton: se saca el voto
-            //  - si apreta el otro: se cambia
-            $pdo->beginTransaction(); // todo o nada
+
+            $pdo->beginTransaction(); 
             try {
                 $stmt = $pdo->prepare("SELECT likeID, tipo FROM `like` WHERE usuarioID = :u AND publicacionID = :p");
                 $stmt->execute([':u' => $usuario['usuarioID'], ':p' => $id]);
@@ -89,12 +80,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     }
 
-    // Despues de un POST se redirige (asi si recargan la pagina no se repite la accion)
     header("Location: publicacion.php?id=" . $id . "#comentarios");
     exit;
 }
 
-// ---------- Calificacion ----------
 $cantidades = ['me_gusta' => 0, 'no_me_gusta' => 0];
 $stmt = $pdo->prepare("SELECT tipo, COUNT(*) AS cantidad FROM `like` WHERE publicacionID = :p GROUP BY tipo");
 $stmt->execute([':p' => $id]);
@@ -110,7 +99,6 @@ if ($usuario !== null) {
     $miVoto = $fila ? $fila['tipo'] : null;
 }
 
-// ---------- Comentarios ----------
 $stmt = $pdo->prepare("SELECT c.comentarioID, c.contenido, c.fechacreacion, c.usuarioID, u.nombreusuario, u.foto
                        FROM comentarios c
                        JOIN usuarios u ON u.usuarioID = c.usuarioID
@@ -137,7 +125,6 @@ require '../includes/cabecera.php';
 
         <div class="publicacion-contenido"><?php echo nl2br(h($publicacion['contenido'])); ?></div>
 
-        <!-- Sistema de calificacion -->
         <div class="calificacion">
             <?php if ($usuario !== null): ?>
                 <form method="POST" action="publicacion.php?id=<?php echo $id; ?>">
@@ -160,7 +147,6 @@ require '../includes/cabecera.php';
         </div>
     </article>
 
-    <!-- Comentarios -->
     <section class="tarjeta" id="comentarios">
         <h2><?php echo count($comentarios); ?> comentario<?php echo count($comentarios) === 1 ? '' : 's'; ?></h2>
 

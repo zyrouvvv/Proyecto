@@ -1,7 +1,5 @@
 <?php
-// editar.php?id=N
-// CRUD DE USUARIOS - Editar: el administrador cambia el nombre, correo, estado y rol de un usuario,
-// y opcionalmente le pone una contraseña nueva. (En el sprint 1 el panel enlazaba este archivo pero no existia.)
+
 
 require '../includes/sesion.php';
 $admin = exigirAdmin($pdo);
@@ -34,7 +32,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $valores['rol'] = $_POST['rol'] ?? '';
     $clave = $_POST['clave'] ?? '';
 
-    // la contraseña es opcional al editar ($pedirClave = false) y el correo no puede repetirse con otro usuario
     $errores = validarUsuario($pdo, [
         'nombre' => $valores['nombre'],
         'email'  => $valores['email'],
@@ -44,7 +41,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         'rol'    => $valores['rol']
     ], $id, false);
 
-    // un administrador no puede quitarse a si mismo el rol (asi nunca queda el sistema sin administradores)
     if ($id === (int)$admin['usuarioID'] && $valores['rol'] !== 'admin') {
         $errores['rol'] = 'No podés quitarte a vos mismo el rol de administrador.';
     }

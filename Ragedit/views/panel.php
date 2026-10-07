@@ -1,18 +1,8 @@
 <?php
-// panel.php
-// CRUD DE USUARIOS (solo administradores):
-//   Leer     -> esta tabla (con buscador)
-//   Crear    -> boton "Nuevo usuario"   (crear_usuario.php)
-//   Editar   -> link "Editar"           (editar.php)
-//   Eliminar -> boton "Eliminar"        (aca mismo)
-// Cambio importante respecto al sprint 1: eliminar ahora es por POST con token de seguridad.
-// Antes era un link (panel.php?eliminar=ID) y cualquiera podia borrar usuarios con solo
-// conocer la direccion, incluso sin ser administrador.
 
 require '../includes/sesion.php';
 $admin = exigirAdmin($pdo);
 
-// ---------- Eliminar ----------
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     verificarCsrf();
 
@@ -26,10 +16,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if (!$objetivo) {
             flash('error', 'El usuario no existe.');
         } elseif ($id === (int)$admin['usuarioID']) {
-            // asi nunca nos quedamos sin administrador
             flash('error', 'No podés eliminar tu propia cuenta desde el panel.');
         } else {
-            // Sus publicaciones, comentarios y votos se borran solos (ON DELETE CASCADE en la base de datos)
             $stmt = $pdo->prepare("DELETE FROM usuarios WHERE usuarioID = :id");
             $stmt->execute([':id' => $id]);
             borrarFoto($objetivo['foto']);
@@ -42,7 +30,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     exit;
 }
 
-// ---------- Listar (con buscador) ----------
 $q = mb_substr(trim($_GET['q'] ?? ''), 0, 100);
 
 if ($q !== '') {

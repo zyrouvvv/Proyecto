@@ -1,5 +1,5 @@
 <?php
-// actualizar_perfil.php
+
 session_start();
 require '../includes/conexion.php';
 

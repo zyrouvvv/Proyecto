@@ -1,7 +1,5 @@
 <?php
-// conexion.php
-// Conexion a la base de datos con PDO (la misma del sprint 1).
-// Si tu MySQL tiene otra clave o la base se llama distinto, se cambia aca.
+
 
 $host = "localhost";
 $db = "testr";

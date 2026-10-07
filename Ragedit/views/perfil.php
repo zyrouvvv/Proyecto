@@ -1,21 +1,13 @@
 <?php
-// perfil.php
-// MI PERFIL: ver y cambiar tu foto, nombre, correo, estado y descripcion.
-// Mejoras respecto al sprint 1:
-//  - la foto se valida de verdad (tamaño y que sea una imagen) y la foto vieja se borra
-//  - el nombre de la foto actual se lee de la base de datos (antes venia de un campo escondido del formulario)
-//  - se muestran los errores por campo y se conservan los datos escritos
 
 require '../includes/sesion.php';
 $usuarioSesion = exigirLogin($pdo);
 $usuarioID = (int)$usuarioSesion['usuarioID'];
 
-// Datos actuales del usuario
 $stmt = $pdo->prepare("SELECT usuarioID, nombreusuario, email, `desc`, foto, estado, registro FROM usuarios WHERE usuarioID = :id");
 $stmt->execute([':id' => $usuarioID]);
 $usuario = $stmt->fetch();
 
-// Lo que se muestra en el formulario (si hay errores, queda lo que escribio la persona)
 $valores = [
     'nombreusuario' => $usuario['nombreusuario'],
     'email'         => $usuario['email'],
@@ -32,7 +24,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $valores['desc'] = trim($_POST['desc'] ?? '');
     $valores['estado'] = $_POST['estado'] ?? '';
 
-    // mismas reglas que el registro (la clave no se cambia aca, por eso $pedirClave = false)
     $errores = validarUsuario($pdo, [
         'nombre' => $valores['nombreusuario'],
         'email'  => $valores['email'],
@@ -43,14 +34,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $errores['desc'] = 'La descripción puede tener hasta 500 caracteres.';
     }
 
-    // Foto de perfil (opcional)
     list($fotoNueva, $errorFoto) = guardarFotoPerfil($_FILES['foto'] ?? null, $usuarioID);
     if ($errorFoto !== '') {
         $errores['foto'] = $errorFoto;
     }
 
     if (count($errores) > 0) {
-        // si hubo errores no dejamos la foto nueva suelta en la carpeta
         if ($fotoNueva !== '') {
             borrarFoto($fotoNueva);
         }
@@ -72,7 +61,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             ]);
 
             if ($fotoNueva !== '') {
-                borrarFoto($usuario['foto']); // borramos la foto anterior
+                borrarFoto($usuario['foto']); 
             }
             $_SESSION['usuario_nombre'] = $valores['nombreusuario'];
 

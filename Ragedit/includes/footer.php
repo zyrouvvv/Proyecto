@@ -1,9 +1,5 @@
 <?php
-// footer.php
-// Cierra el <main> que abrio cabecera.php, muestra el pie de pagina y carga los scripts.
-//
-// Antes de incluirlo, una pagina puede definir:
-//   $scripts -> lista de archivos de /js que necesita, ej: ['panel.js']
+
 ?>
 </main>
 
@@ -29,7 +25,7 @@
             </ul>
         </div>
     </div>
-    <p class="footer-copyright">&copy; <?php echo date('Y'); ?> Ragedit &middot; Proyecto &middot; Sprint 2</p>
+    <p class="footer-copyright">&copy; <?php echo date('Y'); ?> Ragedit</p>
 </footer>
 
 <script src="../js/navbar.js"></script>

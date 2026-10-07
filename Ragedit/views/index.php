@@ -1,9 +1,5 @@
 <?php
-// index.php
-// Pagina de inicio: lista de publicaciones con BUSCADOR y filtro por categoria.
-//   index.php?q=texto            busca en titulo, contenido, autor y categoria
-//   index.php?categoria=3        solo las de esa categoria
-//   index.php?pagina=2           pagina 2 de los resultados (de a 10)
+
 
 require '../includes/sesion.php';
 $usuario = usuarioActual($pdo);
@@ -13,17 +9,14 @@ $q = mb_substr(trim($_GET['q'] ?? ''), 0, 100);
 $categoriaID = (int)($_GET['categoria'] ?? 0);
 $pagina = max(1, (int)($_GET['pagina'] ?? 1));
 
-// Categorias para el desplegable de filtro
 $categorias = $pdo->query("SELECT categoriaID, nombre FROM categoria ORDER BY nombre")->fetchAll();
 
-// ---------- Armamos el WHERE segun los filtros ----------
-// Los valores van como parametros (:q1, :categoria...) y no pegados al texto de la consulta:
-// asi nadie puede meter SQL a traves del buscador (inyeccion SQL).
+
 $condiciones = [];
 $valores = [];
 
 if ($q !== '') {
-    $comodin = '%' . addcslashes($q, '%_\\') . '%'; // % y _ se buscan como letras comunes
+    $comodin = '%' . addcslashes($q, '%_\\') . '%'; 
     $condiciones[] = "(p.titulo LIKE :q1 OR p.contenido LIKE :q2 OR u.nombreusuario LIKE :q3 OR c.nombre LIKE :q4)";
     $valores[':q1'] = $comodin;
     $valores[':q2'] = $comodin;
@@ -41,7 +34,6 @@ $desde = "FROM publicaciones p
           JOIN categoria c ON c.categoriaID = p.categoriaID
           $where";
 
-// ---------- Cuantos resultados hay (para la paginacion) ----------
 $stmt = $pdo->prepare("SELECT COUNT(*) $desde");
 $stmt->execute($valores);
 $total = (int)$stmt->fetchColumn();
@@ -56,13 +48,12 @@ $sql = "SELECT p.publicacionID, p.titulo, p.contenido, p.fechacreacion, u.nombre
                (SELECT COUNT(*) FROM comentarios cm WHERE cm.publicacionID = p.publicacionID) AS cant_comentarios
         $desde
         ORDER BY p.fechacreacion DESC, p.publicacionID DESC
-        LIMIT $porPagina OFFSET $salto";   // $porPagina y $salto son numeros que calculamos nosotros
+        LIMIT $porPagina OFFSET $salto";   
 $stmt = $pdo->prepare($sql);
 $stmt->execute($valores);
 $publicaciones = $stmt->fetchAll();
 
-// ---------- Historial de busquedas (tabla historialbusqueda) ----------
-// Si alguien con sesion busca algo, se guarda (salvo que sea la misma busqueda que la ultima)
+
 $busquedasRecientes = [];
 if ($usuario !== null) {
     if ($q !== '' && !isset($_GET['pagina'])) {
@@ -82,7 +73,6 @@ if ($usuario !== null) {
     $busquedasRecientes = $stmt->fetchAll();
 }
 
-// Arma el link a otra pagina de resultados conservando la busqueda y la categoria
 function urlPagina($numero, $q, $categoriaID) {
     $parametros = ['pagina' => $numero];
     if ($q !== '') {

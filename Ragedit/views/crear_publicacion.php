@@ -1,6 +1,5 @@
 <?php
-// crear_publicacion.php
-// REGISTRO DE PUBLICACIONES: formulario para crear una publicacion nueva (hay que tener sesion).
+
 
 require '../includes/sesion.php';
 $usuario = exigirLogin($pdo);

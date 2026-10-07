@@ -1,11 +1,7 @@
 <?php
-// sesion.php
-// Arranca la sesion y tiene las funciones para saber quien inicio sesion.
-// Todas las vistas empiezan con:  require '../includes/sesion.php';
-// (este archivo ya trae la conexion a la base de datos y las ayudas)
+
 
 if (session_status() === PHP_SESSION_NONE) {
-    // httponly: el JavaScript no puede leer la cookie. samesite: no se manda desde otros sitios.
     session_set_cookie_params(['httponly' => true, 'samesite' => 'Lax']);
     session_start();
 }
@@ -15,8 +11,7 @@ require_once __DIR__ . '/ayudas.php';
 
 date_default_timezone_set('America/Argentina/Buenos_Aires');
 
-// Devuelve los datos del usuario que inicio sesion (usuarioID, nombreusuario, foto, rol) o null si no hay nadie.
-// Se lee de la base de datos en cada pedido: si borraron al usuario, la sesion deja de valer sola.
+
 function usuarioActual($pdo) {
     if (empty($_SESSION['usuario_id'])) {
         return null;
@@ -32,7 +27,7 @@ function usuarioActual($pdo) {
 }
 
 function iniciarSesion($usuarioID, $nombreusuario) {
-    session_regenerate_id(true); // cambia el id de la sesion (seguridad)
+    session_regenerate_id(true); 
     $_SESSION['usuario_id'] = (int)$usuarioID;
     $_SESSION['usuario_nombre'] = $nombreusuario;
 }
@@ -46,8 +41,7 @@ function cerrarSesion() {
     session_destroy();
 }
 
-// Para las paginas que piden sesion. Si no hay, manda al login y despues vuelve a la pagina que se queria ver.
-// Devuelve los datos del usuario.
+
 function exigirLogin($pdo) {
     $usuario = usuarioActual($pdo);
     if ($usuario === null) {
@@ -61,7 +55,7 @@ function exigirLogin($pdo) {
     return $usuario;
 }
 
-// Para las paginas solo de administradores
+
 function exigirAdmin($pdo) {
     $usuario = exigirLogin($pdo);
     if ($usuario['rol'] !== 'admin') {
@@ -71,9 +65,7 @@ function exigirAdmin($pdo) {
     return $usuario;
 }
 
-// ---------- Proteccion CSRF ----------
-// Todos los formularios llevan un campo escondido con un codigo secreto de la sesion.
-// Si el codigo no coincide, el pedido no viene de nuestro formulario y se rechaza.
+
 function campoCsrf() {
     if (empty($_SESSION['csrf'])) {
         $_SESSION['csrf'] = bin2hex(random_bytes(32));

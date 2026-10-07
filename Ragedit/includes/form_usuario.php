@@ -1,11 +1,5 @@
 <?php
-// form_usuario.php
-// Formulario que comparten crear_usuario.php y editar.php (asi no se escribe dos veces).
-// Variables que tiene que definir la pagina que lo incluye:
-//   $modo       -> 'crear' o 'editar'
-//   $accionForm -> a donde se manda el formulario
-//   $valores    -> ['nombre', 'email', 'estado', 'rol']
-//   $errores    -> errores por campo (puede estar vacio)
+
 ?>
 <form method="POST" action="<?php echo h($accionForm); ?>">
     <?php echo campoCsrf(); ?>

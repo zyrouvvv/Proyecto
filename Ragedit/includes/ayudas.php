@@ -1,17 +1,14 @@
 <?php
-// ayudas.php
-// Funciones chicas que usan varias paginas.
+
 
 const ESTADOS = ['Activo', 'Ocupado', 'Ausente', 'Inactivo'];
 const ROLES = ['usuario', 'admin'];
 
-// Escapa un texto para mostrarlo en HTML sin que se pueda colar codigo (XSS).
-// Hay que usarla SIEMPRE que se muestre algo que escribio un usuario.
+
 function h($texto) {
     return htmlspecialchars((string)$texto, ENT_QUOTES, 'UTF-8');
 }
 
-// "2026-10-02 15:30:00" -> "02/10/2026 15:30"
 function formatearFecha($fecha) {
     if (empty($fecha)) {
         return '-';
@@ -19,7 +16,6 @@ function formatearFecha($fecha) {
     return date('d/m/Y H:i', strtotime($fecha));
 }
 
-// Devuelve la direccion de la foto de perfil (o el avatar por defecto si no tiene)
 function urlFoto($foto) {
     if (!empty($foto) && is_file(__DIR__ . '/../img/' . basename($foto))) {
         return '../img/' . rawurlencode(basename($foto));
@@ -27,8 +23,7 @@ function urlFoto($foto) {
     return '../img/avatar.svg';
 }
 
-// ---------- Mensajes que sobreviven a una redireccion ----------
-// flash('ok', 'Usuario eliminado.');  -> se muestra en la pagina siguiente con mostrarFlash()
+
 function flash($tipo, $texto) {
     $_SESSION['flash'] = ['tipo' => $tipo, 'texto' => $texto];
 }
@@ -41,19 +36,13 @@ function mostrarFlash() {
     }
 }
 
-// Muestra el error de un campo del formulario (si lo tiene), debajo del input
 function errorCampo($errores, $campo) {
     if (!empty($errores[$campo])) {
         echo '<span class="error-campo">' . h($errores[$campo]) . '</span>';
     }
 }
 
-// ---------- Validacion de usuarios ----------
-// La usan el registro, el perfil y el CRUD del panel, asi las reglas son las mismas en todos lados.
-// $datos puede traer: nombre, email, clave, clave2, estado, rol
-// $excepto: id de un usuario a ignorar al revisar si el correo ya existe (cuando alguien edita sus propios datos)
-// $pedirClave: false cuando la contraseña es opcional (editar un usuario)
-// Devuelve un array con un error por campo. Si esta vacio, todo esta bien.
+
 function validarUsuario($pdo, $datos, $excepto = 0, $pedirClave = true) {
     $errores = [];
     $nombre = $datos['nombre'] ?? '';
@@ -92,12 +81,7 @@ function validarUsuario($pdo, $datos, $excepto = 0, $pedirClave = true) {
     return $errores;
 }
 
-// ---------- Fotos de perfil ----------
-// Guarda la foto que llego por el formulario en la carpeta img/.
-// Devuelve [nombreDelArchivo, error]:
-//   ['', '']       -> no se eligio ninguna foto
-//   ['user_..', ''] -> se guardo bien
-//   ['', 'texto']   -> hubo un error
+
 function guardarFotoPerfil($archivo, $usuarioID) {
     if ($archivo === null || $archivo['error'] === UPLOAD_ERR_NO_FILE) {
         return ['', ''];
@@ -109,7 +93,6 @@ function guardarFotoPerfil($archivo, $usuarioID) {
         return ['', 'La imagen pesa más de 2 MB.'];
     }
 
-    // getimagesize comprueba que el archivo sea una imagen de verdad (no se fia de la extension)
     $tipos = ['image/jpeg' => 'jpg', 'image/png' => 'png', 'image/gif' => 'gif', 'image/webp' => 'webp'];
     $info = @getimagesize($archivo['tmp_name']);
     if ($info === false || !isset($tipos[$info['mime']])) {
@@ -128,8 +111,7 @@ function guardarFotoPerfil($archivo, $usuarioID) {
     return [$nombre, ''];
 }
 
-// Borra una foto de la carpeta img/. Solo toca archivos que empiecen con "user_",
-// asi nunca se borra el avatar por defecto.
+
 function borrarFoto($nombre) {
     if (strpos((string)$nombre, 'user_') !== 0) {
         return;

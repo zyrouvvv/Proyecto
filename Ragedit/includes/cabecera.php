@@ -1,10 +1,5 @@
 <?php
-// cabecera.php
-// Parte de ARRIBA de todas las paginas: el <head> y el navbar. Se cierra con footer.php.
-//
-// Antes de incluirlo, cada pagina puede definir:
-//   $tituloPagina -> texto del <title>
-//   $claseMain    -> clase extra para <main> (por ejemplo "centrado" en login y registro)
+
 
 require_once __DIR__ . '/sesion.php';
 

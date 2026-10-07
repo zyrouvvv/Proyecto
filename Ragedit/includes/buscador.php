@@ -12,7 +12,6 @@ if (empty($query)) {
 }
 
 try {
-    // Busca coincidencias en el título o contenido de las publicaciones
     $sql = "SELECT p.id, p.titulo, p.contenido, p.fecha, u.nombre AS autor 
             FROM publicaciones p 
             JOIN usuarios u ON p.usuario_id = u.id 
@@ -24,7 +23,6 @@ try {
     $stmt->execute(['query' => "%{$query}%"]);
     $publicaciones = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-    // Formatear los resultados para la respuesta JSON
     $resultados = array_map(function ($post) {
         return [
             'id' => $post['id'],
